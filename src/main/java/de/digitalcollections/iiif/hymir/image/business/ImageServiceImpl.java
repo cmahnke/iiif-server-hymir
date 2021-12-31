@@ -2,6 +2,7 @@ package de.digitalcollections.iiif.hymir.image.business;
 
 import com.google.common.collect.Streams;
 import de.digitalcollections.commons.file.business.api.FileResourceService;
+import de.digitalcollections.iiif.hymir.image.business.api.ImageQualityService;
 import de.digitalcollections.iiif.hymir.image.business.api.ImageSecurityService;
 import de.digitalcollections.iiif.hymir.image.business.api.ImageService;
 import de.digitalcollections.iiif.hymir.model.exception.InvalidParametersException;
@@ -9,6 +10,7 @@ import de.digitalcollections.iiif.hymir.model.exception.ScalingException;
 import de.digitalcollections.iiif.hymir.model.exception.UnsupportedFormatException;
 import de.digitalcollections.iiif.model.image.ImageApiProfile;
 import de.digitalcollections.iiif.model.image.ImageApiProfile.Format;
+import de.digitalcollections.iiif.model.image.ImageApiProfile.Quality;
 import de.digitalcollections.iiif.model.image.ImageApiSelector;
 import de.digitalcollections.iiif.model.image.ResolvingException;
 import de.digitalcollections.iiif.model.image.Size;
@@ -28,6 +30,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -67,6 +70,7 @@ public class ImageServiceImpl implements ImageService {
   }
 
   private final ImageSecurityService imageSecurityService;
+  private final Map<Quality, ImageQualityService> imageQualityServices;
   private final FileResourceService fileResourceService;
 
   @Value("${custom.iiif.logo:}")
@@ -86,8 +90,10 @@ public class ImageServiceImpl implements ImageService {
 
   public ImageServiceImpl(
       @Autowired(required = false) ImageSecurityService imageSecurityService,
+      @Autowired(required = false) Map<Quality, ImageQualityService> imageQualityServices,
       @Autowired FileResourceService fileResourceService) {
     this.imageSecurityService = imageSecurityService;
+    this.imageQualityServices = imageQualityServices;
     this.fileResourceService = fileResourceService;
   }
 
@@ -355,29 +361,32 @@ public class ImageServiceImpl implements ImageService {
       }
       img = Scalr.rotate(img, rot);
     }
-    // Quality
-    int outType;
-    switch (quality) {
-      case GRAY:
+
+    if (this.imageQualityServices != null && this.imageQualityServices.containsKey(quality)) {
+      //TODO: Find a way to handle size changes by the ImageQualityService
+      return this.imageQualityServices.get(quality).processImage(img);
+    } else {
+      // Quality
+      int outType;
+
+      if (Quality.GRAY.equals(quality)) {
         outType = BufferedImage.TYPE_BYTE_GRAY;
-        break;
-      case BITONAL:
+      } else if (Quality.BITONAL.equals(quality)) {
         outType = BufferedImage.TYPE_BYTE_BINARY;
-        break;
-      case COLOR:
+      } else if (Quality.COLOR.equals(quality)) {
         outType = BufferedImage.TYPE_3BYTE_BGR;
-        break;
-      default:
+      } else {
         outType = inType;
+      }
+      if (outType != img.getType()) {
+        BufferedImage newImg = new BufferedImage(img.getWidth(), img.getHeight(), outType);
+        Graphics2D g2d = newImg.createGraphics();
+        g2d.drawImage(img, 0, 0, null);
+        img = newImg;
+        g2d.dispose();
+      }
+      return img;
     }
-    if (outType != img.getType()) {
-      BufferedImage newImg = new BufferedImage(img.getWidth(), img.getHeight(), outType);
-      Graphics2D g2d = newImg.createGraphics();
-      g2d.drawImage(img, 0, 0, null);
-      img = newImg;
-      g2d.dispose();
-    }
-    return img;
   }
 
   @Override
