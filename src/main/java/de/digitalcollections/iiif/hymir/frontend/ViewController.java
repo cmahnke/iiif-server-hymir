@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.HandlerMapping;
 
 /** Controller for serving different view pages. */
 @Controller
@@ -21,10 +22,18 @@ public class ViewController {
     return "index";
   }
 
-  @RequestMapping(value = "/image/{identifier}/view.html", method = RequestMethod.GET)
-  public String viewImageGet(@PathVariable String identifier, Model model) {
+  @RequestMapping(value = "/image/**/view.html", method = RequestMethod.GET, name = "identifier")
+  public String viewImageGet(String identifier, HttpServletRequest req, Model model) {
+    String id = "";
+    if (((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).contains("**")) {
+      int cutPos = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).indexOf("**") + "**".length();
+      String cutOff = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).substring(cutPos);
+      id = identifier.replace(cutOff, "");
+    } else {
+      id = identifier;
+    }
     model.addAttribute(
-        "infoUrl", "/image/" + IIIFImageApiController.VERSION + "/" + identifier + "/info.json");
+        "infoUrl", "/image/" + IIIFImageApiController.VERSION + "/" + id + "/info.json");
     return "openseadragon/view";
   }
 

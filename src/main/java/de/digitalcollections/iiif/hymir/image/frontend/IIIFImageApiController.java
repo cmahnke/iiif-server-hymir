@@ -26,10 +26,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.servlet.HandlerMapping;
 
 @Controller
 @RequestMapping("${custom.iiif.image.urlPrefix:/image/v2/}")
@@ -191,16 +193,26 @@ public class IIIFImageApiController {
   }
 
   @RequestMapping(
-      value = "{identifier}/info.json",
-      method = {RequestMethod.GET, RequestMethod.HEAD})
+      value = "**/info.json",
+      method = {RequestMethod.GET, RequestMethod.HEAD},
+      name = "identifier")
   public ResponseEntity<String> getInfo(
-      @PathVariable String identifier, HttpServletRequest req, WebRequest webRequest)
+          String identifier, HttpServletRequest req, WebRequest webRequest)
       throws Exception {
-    if (UrlRules.isInsecure(identifier)) {
+    String id = "";
+    if (((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).contains("**")) {
+      int cutPos = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).indexOf("**") + "**".length();
+      String cutOff = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).substring(cutPos);
+      id = identifier.replace(cutOff, "");
+    } else {
+      id = identifier;
+    }
+
+    if (UrlRules.isInsecure(id)) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("");
     }
     long duration = System.currentTimeMillis();
-    long modified = imageService.getImageModificationDate(identifier).toEpochMilli();
+    long modified = imageService.getImageModificationDate(id).toEpochMilli();
     webRequest.checkNotModified(modified);
     String path;
     if (req.getPathInfo() != null) {
@@ -212,9 +224,9 @@ public class IIIFImageApiController {
     String imageIdentifier =
         baseUrl
             + path.replace("/info.json", "")
-                .replace(identifier, URLEncoder.encode(identifier, StandardCharsets.UTF_8));
+                .replace(id, URLEncoder.encode(id, StandardCharsets.UTF_8));
     var info = new de.digitalcollections.iiif.model.image.ImageService(imageIdentifier);
-    imageService.readImageInfo(identifier, info);
+    imageService.readImageInfo(id, info);
     duration = System.currentTimeMillis() - duration;
     metricsService.increaseCounterWithDurationAndPercentiles("generations", "infojson", duration);
     HttpHeaders headers = new HttpHeaders();
@@ -245,15 +257,24 @@ public class IIIFImageApiController {
     return new ResponseEntity<>(objectMapper.writeValueAsString(info), headers, HttpStatus.OK);
   }
 
-  @RequestMapping(
-      value = "{identifier}",
-      method = {RequestMethod.GET, RequestMethod.HEAD})
-  public String getInfoRedirect(@PathVariable String identifier, HttpServletResponse response) {
-    if (UrlRules.isInsecure(identifier)) {
+    @RequestMapping(
+            value = "**",
+            method = {RequestMethod.GET, RequestMethod.HEAD},
+            name = "identifier")
+  public String getInfoRedirect(String identifier, HttpServletRequest req, HttpServletResponse response) {
+      String id = "";
+      if (((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).contains("**")) {
+        int cutPos = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).indexOf("**") + "**".length();
+        String cutOff = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).substring(cutPos);
+        id = identifier.replace(cutOff, "");
+      } else {
+        id = identifier;
+      }
+    if (UrlRules.isInsecure(id)) {
       response.setStatus(400);
       return null;
     }
     response.setHeader("Access-Control-Allow-Origin", "*");
-    return "redirect:/image/" + VERSION + "/" + identifier + "/info.json";
+    return "redirect:/image/" + VERSION + "/" + id + "/info.json";
   }
 }

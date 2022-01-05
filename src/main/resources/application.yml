@@ -91,6 +91,10 @@ spring:
     cache: false
     mode: HTML
 
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+#      matching-strategy: path_pattern_parser
 ---
 
 # PROD
