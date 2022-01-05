@@ -39,7 +39,7 @@ info:
 management:
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
   endpoints:
     web:
       base-path: '/monitoring'

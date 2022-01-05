@@ -2,6 +2,7 @@ package de.digitalcollections.iiif.hymir.frontend;
 
 import de.digitalcollections.iiif.hymir.image.frontend.IIIFImageApiController;
 import de.digitalcollections.iiif.hymir.presentation.frontend.IIIFPresentationApiController;
+import de.digitalcollections.iiif.hymir.util.URLPartIdentifierHelper;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,14 +27,7 @@ public class ViewController {
 
   @RequestMapping(value = "/image/**/view.html", method = RequestMethod.GET, name = "identifier")
   public String viewImageGet(String identifier, HttpServletRequest req, Model model) {
-    String id = "";
-    if (((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).contains("**")) {
-      int cutPos = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).indexOf("**") + "**".length();
-      String cutOff = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).substring(cutPos);
-      id = identifier.replace(cutOff, "");
-    } else {
-      id = identifier;
-    }
+    String id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
     model.addAttribute(
         "infoUrl", "/image/" + IIIFImageApiController.VERSION + "/" + id + "/info.json");
     return "openseadragon/view";

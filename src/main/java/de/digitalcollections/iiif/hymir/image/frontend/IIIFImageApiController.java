@@ -6,6 +6,7 @@ import de.digitalcollections.iiif.hymir.image.business.api.ImageService;
 import de.digitalcollections.iiif.hymir.model.exception.InvalidParametersException;
 import de.digitalcollections.iiif.hymir.model.exception.ScalingException;
 import de.digitalcollections.iiif.hymir.model.exception.UnsupportedFormatException;
+import de.digitalcollections.iiif.hymir.util.URLPartIdentifierHelper;
 import de.digitalcollections.iiif.hymir.util.UrlRules;
 import de.digitalcollections.iiif.model.image.ImageApiProfile;
 import de.digitalcollections.iiif.model.image.ImageApiSelector;
@@ -197,16 +198,11 @@ public class IIIFImageApiController {
       method = {RequestMethod.GET, RequestMethod.HEAD},
       name = "identifier")
   public ResponseEntity<String> getInfo(
-          String identifier, HttpServletRequest req, WebRequest webRequest)
+           String identifier, HttpServletRequest req, WebRequest webRequest)
       throws Exception {
-    String id = "";
-    if (((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).contains("**")) {
-      int cutPos = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).indexOf("**") + "**".length();
-      String cutOff = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).substring(cutPos);
-      id = identifier.replace(cutOff, "");
-    } else {
-      id = identifier;
-    }
+    String id =
+            new AntPathMatcher().extractPathWithinPattern((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE), req.getPathInfo());
+    id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
 
     if (UrlRules.isInsecure(id)) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("");
@@ -262,19 +258,13 @@ public class IIIFImageApiController {
             method = {RequestMethod.GET, RequestMethod.HEAD},
             name = "identifier")
   public String getInfoRedirect(String identifier, HttpServletRequest req, HttpServletResponse response) {
-      String id = "";
-      if (((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).contains("**")) {
-        int cutPos = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).indexOf("**") + "**".length();
-        String cutOff = ((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).substring(cutPos);
-        id = identifier.replace(cutOff, "");
-      } else {
-        id = identifier;
-      }
-    if (UrlRules.isInsecure(id)) {
+    String id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
+    if (UrlRules.isInsecure(identifier)) {
       response.setStatus(400);
       return null;
     }
     response.setHeader("Access-Control-Allow-Origin", "*");
     return "redirect:/image/" + VERSION + "/" + id + "/info.json";
   }
+
 }
