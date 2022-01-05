@@ -104,7 +104,7 @@ public class IIIFImageApiController {
       WebRequest webRequest)
       throws UnsupportedFormatException, UnsupportedOperationException, IOException,
           InvalidParametersException, ResourceNotFoundException, ScalingException {
-    String id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
+    String id = URLPartIdentifierHelper.extractIdentifier(identifier, request);
     if (UrlRules.isInsecure(id)) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new byte[] {});
     }
@@ -116,7 +116,7 @@ public class IIIFImageApiController {
       path = request.getServletPath();
     }
 
-    long modified = imageService.getImageModificationDate(ide).toEpochMilli();
+    long modified = imageService.getImageModificationDate(id).toEpochMilli();
     webRequest.checkNotModified(modified);
     headers.setDate("Last-Modified", modified);
 

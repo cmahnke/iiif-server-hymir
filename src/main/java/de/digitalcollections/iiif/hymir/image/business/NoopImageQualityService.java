@@ -1,15 +1,17 @@
 package de.digitalcollections.iiif.hymir.image.business;
 
 import de.digitalcollections.iiif.hymir.image.business.api.ImageQualityService;
+import de.digitalcollections.iiif.model.image.ImageApiProfile;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.awt.image.BufferedImage;
 
 @Service
-public class NopImageQualityService implements ImageQualityService {
+public class NoopImageQualityService implements ImageQualityService {
     @Override
-    public String getName() {
-        return "nop";
+    public ImageApiProfile.Quality getQuality() {
+        return new ImageApiProfile.Quality("nop");
     }
 
     @Override
@@ -18,5 +20,11 @@ public class NopImageQualityService implements ImageQualityService {
     @Override
     public BufferedImage processImage(BufferedImage img) {
         return img;
+    }
+
+    @Override
+    @Value("${custom:image.quality.noop:false}")
+    public boolean enabled() {
+        return false;
     }
 }

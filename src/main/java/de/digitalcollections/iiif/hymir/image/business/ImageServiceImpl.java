@@ -30,7 +30,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Map;
+import java.util.List;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -70,7 +70,9 @@ public class ImageServiceImpl implements ImageService {
   }
 
   private final ImageSecurityService imageSecurityService;
-  private final Map<Quality, ImageQualityService> imageQualityServices;
+
+  @Autowired
+  private final List<ImageQualityService> imageQualityServices;
   private final FileResourceService fileResourceService;
 
   @Value("${custom.iiif.logo:}")
@@ -90,7 +92,7 @@ public class ImageServiceImpl implements ImageService {
 
   public ImageServiceImpl(
       @Autowired(required = false) ImageSecurityService imageSecurityService,
-      @Autowired(required = false) Map<Quality, ImageQualityService> imageQualityServices,
+      @Autowired(required = false) List<ImageQualityService> imageQualityServices,
       @Autowired FileResourceService fileResourceService) {
     this.imageSecurityService = imageSecurityService;
     this.imageQualityServices = imageQualityServices;
@@ -112,6 +114,15 @@ public class ImageServiceImpl implements ImageService {
 
     // Add supported Formats
     profile.addFormat(Format.GIF, Format.JPG, Format.PNG, Format.TIF, Format.WEBP);
+
+    //Add supported Qualities
+    if (imageQualityServices == null) {
+      for (ImageQualityService iqs : imageQualityServices) {
+        if (iqs.enabled()) {
+          profile.addQuality(iqs.getQuality());
+        }
+      }
+    }
 
     // Indicate to the client if we cannot deliver full resolution versions of the image
     if (reader.getHeight(0) > maxHeight || reader.getWidth(0) > maxWidth) {
@@ -363,9 +374,15 @@ public class ImageServiceImpl implements ImageService {
       img = Scalr.rotate(img, rot);
     }
 
-    if (this.imageQualityServices != null && this.imageQualityServices.containsKey(quality)) {
+    if (this.imageQualityServices != null && this.imageQualityServices.contains(quality)) {
       //TODO: Find a way to handle size changes by the ImageQualityService
-      ImageQualityService iqs = this.imageQualityServices.get(quality);
+      ImageQualityService iqs = new NoopImageQualityService();
+      for (ImageQualityService s: this.imageQualityServices) {
+        if (s.getQuality().equals(quality) && s.enabled()) {
+          iqs = s;
+        }
+      }
+
       iqs.setIdentifier(identifier);
       return iqs.processImage(img);
     } else {
