@@ -91,9 +91,9 @@ public class IIIFImageApiController {
     return base;
   }
 
-  @RequestMapping(value = "{identifier}/{region}/{size}/{rotation}/{quality}.{format}")
+  @RequestMapping(value = "**/{region}/{size}/{rotation}/{quality}.{format}")
   public ResponseEntity<byte[]> getImageRepresentation(
-      @PathVariable String identifier,
+      String identifier,
       @PathVariable String region,
       @PathVariable String size,
       @PathVariable String rotation,
@@ -104,7 +104,8 @@ public class IIIFImageApiController {
       WebRequest webRequest)
       throws UnsupportedFormatException, UnsupportedOperationException, IOException,
           InvalidParametersException, ResourceNotFoundException, ScalingException {
-    if (UrlRules.isInsecure(identifier)) {
+    String id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
+    if (UrlRules.isInsecure(id)) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new byte[] {});
     }
     HttpHeaders headers = new HttpHeaders();
@@ -115,12 +116,12 @@ public class IIIFImageApiController {
       path = request.getServletPath();
     }
 
-    long modified = imageService.getImageModificationDate(identifier).toEpochMilli();
+    long modified = imageService.getImageModificationDate(ide).toEpochMilli();
     webRequest.checkNotModified(modified);
     headers.setDate("Last-Modified", modified);
 
     ImageApiSelector selector = new ImageApiSelector();
-    selector.setIdentifier(identifier);
+    selector.setIdentifier(id);
 
     try {
       selector.setRegion(region);
@@ -146,8 +147,8 @@ public class IIIFImageApiController {
     }
 
     var info =
-        new de.digitalcollections.iiif.model.image.ImageService("http://foo.org/" + identifier);
-    imageService.readImageInfo(identifier, info);
+        new de.digitalcollections.iiif.model.image.ImageService("http://foo.org/" + id);
+    imageService.readImageInfo(id, info);
     ImageApiProfile profile = ImageApiProfile.merge(info.getProfiles());
     String canonicalForm;
     try {
@@ -160,7 +161,7 @@ public class IIIFImageApiController {
       throw new InvalidParametersException(e);
     }
     String canonicalUrl =
-        getUrlBase(request) + path.substring(0, path.indexOf(identifier)) + canonicalForm;
+        getUrlBase(request) + path.substring(0, path.indexOf(id)) + canonicalForm;
     if (this.isCanonicalRedirectEnabled && !canonicalForm.equals(selector.toString())) {
       response.setHeader("Link", String.format("<%s>;rel=\"canonical\"", canonicalUrl));
       response.sendRedirect(canonicalUrl);
@@ -177,7 +178,7 @@ public class IIIFImageApiController {
 
       ByteArrayOutputStream os = new ByteArrayOutputStream();
       long duration = System.currentTimeMillis();
-      imageService.processImage(identifier, selector, profile, os);
+      imageService.processImage(id, selector, profile, os);
       duration = System.currentTimeMillis() - duration;
       metricsService.increaseCounterWithDurationAndPercentiles("image", "process", duration);
 
