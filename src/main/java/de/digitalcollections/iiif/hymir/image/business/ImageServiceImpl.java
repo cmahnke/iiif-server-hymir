@@ -322,6 +322,7 @@ public class ImageServiceImpl implements ImageService {
 
   /** Apply transformations to an decoded image * */
   private BufferedImage transformImage(
+      String identifier,
       BufferedImage inputImage,
       Dimension targetSize,
       int rotation,
@@ -364,7 +365,9 @@ public class ImageServiceImpl implements ImageService {
 
     if (this.imageQualityServices != null && this.imageQualityServices.containsKey(quality)) {
       //TODO: Find a way to handle size changes by the ImageQualityService
-      return this.imageQualityServices.get(quality).processImage(img);
+      ImageQualityService iqs = this.imageQualityServices.get(quality);
+      iqs.setIdentifier(identifier);
+      return iqs.processImage(img);
     } else {
       // Quality
       int outType;
@@ -418,6 +421,7 @@ public class ImageServiceImpl implements ImageService {
 
     BufferedImage outImg =
         transformImage(
+            identifier,
             decodedImage.img,
             decodedImage.targetSize,
             decodedImage.rotation,
