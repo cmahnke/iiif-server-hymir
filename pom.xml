@@ -544,6 +544,7 @@
         </executions>
         <configuration>
           <classifier>exec</classifier>
+          <layout>ZIP</layout>
         </configuration>
       </plugin>
       <plugin>

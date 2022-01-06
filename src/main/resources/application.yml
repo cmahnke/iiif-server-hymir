@@ -90,11 +90,12 @@ spring:
   thymeleaf:
     cache: false
     mode: HTML
-
+#  main:
+#    allow-bean-definition-overriding: true
   mvc:
     pathmatch:
       matching-strategy: ant_path_matcher
-#      matching-strategy: path_pattern_parser
+
 ---
 
 # PROD
