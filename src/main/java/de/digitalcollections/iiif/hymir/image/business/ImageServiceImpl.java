@@ -30,7 +30,9 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -71,8 +73,8 @@ public class ImageServiceImpl implements ImageService {
 
   private final ImageSecurityService imageSecurityService;
 
-  @Autowired
   private final List<ImageQualityService> imageQualityServices;
+  private Map<Quality, ImageQualityService> serviceMap = new HashMap<Quality, ImageQualityService>();
   private final FileResourceService fileResourceService;
 
   @Value("${custom.iiif.logo:}")
@@ -97,6 +99,11 @@ public class ImageServiceImpl implements ImageService {
     this.imageSecurityService = imageSecurityService;
     this.imageQualityServices = imageQualityServices;
     this.fileResourceService = fileResourceService;
+    if (this.imageQualityServices != null) {
+      for (ImageQualityService iqs: imageQualityServices) {
+        this.serviceMap.put(iqs.getQuality(), iqs);
+      }
+    }
   }
 
   /** Update ImageService based on the image * */
@@ -116,8 +123,8 @@ public class ImageServiceImpl implements ImageService {
     profile.addFormat(Format.GIF, Format.JPG, Format.PNG, Format.TIF, Format.WEBP);
 
     //Add supported Qualities
-    if (imageQualityServices == null) {
-      for (ImageQualityService iqs : imageQualityServices) {
+    if (this.imageQualityServices != null) {
+      for (ImageQualityService iqs : this.imageQualityServices) {
         if (iqs.enabled()) {
           profile.addQuality(iqs.getQuality());
         }
@@ -374,13 +381,12 @@ public class ImageServiceImpl implements ImageService {
       img = Scalr.rotate(img, rot);
     }
 
-    if (this.imageQualityServices != null && this.imageQualityServices.contains(quality)) {
+    if (this.serviceMap != null && this.serviceMap.containsKey(quality)) {
       //TODO: Find a way to handle size changes by the ImageQualityService
       ImageQualityService iqs = new NoopImageQualityService();
-      for (ImageQualityService s: this.imageQualityServices) {
-        if (s.getQuality().equals(quality) && s.enabled()) {
-          iqs = s;
-        }
+
+      if (this.serviceMap.get(quality).enabled()) {
+        iqs = this.serviceMap.get(quality);
       }
 
       iqs.setIdentifier(identifier);

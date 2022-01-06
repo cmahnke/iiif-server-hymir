@@ -9,9 +9,15 @@ import java.awt.image.BufferedImage;
 
 @Service
 public class NoopImageQualityService implements ImageQualityService {
+    @Value("${custom.image.quality.noop.enabled:false}")
+    private boolean enabled = false;
+
+    @Value("${custom.image.quality.noop.name:noop}")
+    private String name;
+
     @Override
     public ImageApiProfile.Quality getQuality() {
-        return new ImageApiProfile.Quality("nop");
+        return new ImageApiProfile.Quality(name);
     }
 
     @Override
@@ -23,8 +29,8 @@ public class NoopImageQualityService implements ImageQualityService {
     }
 
     @Override
-    @Value("${custom:image.quality.noop:false}")
+
     public boolean enabled() {
-        return false;
+        return enabled;
     }
 }
