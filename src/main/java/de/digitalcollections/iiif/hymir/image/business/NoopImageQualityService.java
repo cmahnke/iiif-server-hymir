@@ -1,6 +1,7 @@
 package de.digitalcollections.iiif.hymir.image.business;
 
 import de.digitalcollections.iiif.hymir.image.business.api.ImageQualityService;
+import de.digitalcollections.iiif.hymir.model.api.HymirPlugin;
 import de.digitalcollections.iiif.model.image.ImageApiProfile;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -8,12 +9,16 @@ import org.springframework.stereotype.Service;
 import java.awt.image.BufferedImage;
 
 @Service
-public class NoopImageQualityService implements ImageQualityService {
+public class NoopImageQualityService implements ImageQualityService, HymirPlugin.Buildin {
     @Value("${custom.image.quality.noop.enabled:false}")
     private boolean enabled = false;
 
     @Value("${custom.image.quality.noop.name:noop}")
     private String name;
+
+    public String name() {
+        return "Noop Image Quality Plugin, just returns the given image";
+    }
 
     @Override
     public ImageApiProfile.Quality getQuality() {
@@ -21,7 +26,8 @@ public class NoopImageQualityService implements ImageQualityService {
     }
 
     @Override
-    public void setIdentifier(String identifier) { }
+    public void setIdentifier(String identifier) {
+    }
 
     @Override
     public BufferedImage processImage(BufferedImage img) {

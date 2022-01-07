@@ -24,9 +24,6 @@ public class SpringConfigImageQualityService {
 
     @Bean
     public List<ImageQualityService> getServices() {
-        for (ImageQualityService iqs: services) {
-            LOGGER.info("Supported quality {} found - {}", iqs.getQuality().toString(), (iqs.enabled() ? "enabled" : "disabled" ));
-        }
         return services;
     }
 }

@@ -34,6 +34,9 @@ management:
   server:
     port: 9001
 
+plugins:
+  packages: de.digitalcollections.iiif.hymir
+
 resourceRepository:
   resolved:
     patterns:
