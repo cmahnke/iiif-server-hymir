@@ -41,9 +41,25 @@ public class SpringConfigPlugins {
                 })
                 .toList();
         for (ImageQualityService iqs : imageQualityServices) {
-            LOGGER.info("Supported quality {} found - {}", iqs.getQuality().toString(), (iqs.enabled() ? "enabled" : "disabled"));
+            LOGGER.info("Supported quality '{}' found - {}", iqs.getQuality().toString(), (iqs.enabled() ? "enabled" : "disabled"));
         }
         return imageQualityServices;
+    }
+
+    @Bean
+    public List<HymirPlugin> listPlugins() {
+        List<HymirPlugin> ps = FluentIterable.from(plugins).filter(new Predicate<HymirPlugin>() {
+                    @Override
+                    public boolean apply(HymirPlugin input) {
+                        return (!(input instanceof HymirPlugin.Buildin || input instanceof ImageQualityService));
+                    }
+                })
+                .toList();
+
+        for (HymirPlugin p : ps) {
+            LOGGER.info("Found plugin '{}'", p.name());
+        }
+        return ps;
     }
 
 }
