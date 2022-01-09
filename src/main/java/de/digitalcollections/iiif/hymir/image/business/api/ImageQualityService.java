@@ -39,4 +39,10 @@ public interface ImageQualityService extends HymirPlugin {
      * @return whether the service should be used and advertised
      */
     public boolean enabled();
+
+    /**
+     * Set if the image should be read with alpha channel
+     * @return whether the resulting image might has a alpha channel
+     */
+    public boolean hasAlpha();
 }

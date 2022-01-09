@@ -39,4 +39,9 @@ public class NoopImageQualityService implements ImageQualityService, HymirPlugin
     public boolean enabled() {
         return enabled;
     }
+
+    @Override
+    public boolean hasAlpha() {
+        return false;
+    }
 }

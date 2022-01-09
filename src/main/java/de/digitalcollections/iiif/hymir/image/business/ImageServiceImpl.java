@@ -423,6 +423,14 @@ public class ImageServiceImpl implements ImageService {
     DecodedImage decodedImage = readImage(identifier, selector, profile);
 
     boolean containsAlphaChannel = containsAlphaChannel(decodedImage.img);
+    if (!containsAlphaChannel) {
+      ImageApiProfile.Quality quality = selector.getQuality() ;
+      if (this.serviceMap != null && this.serviceMap.containsKey(quality)) {
+        if (this.serviceMap.get(quality).enabled()) {
+          containsAlphaChannel = this.serviceMap.get(quality).hasAlpha();
+        }
+      }
+    }
     LOGGER.debug("image contains alpha channel: " + containsAlphaChannel);
     if (containsAlphaChannel) {
       int type = decodedImage.img.getType();

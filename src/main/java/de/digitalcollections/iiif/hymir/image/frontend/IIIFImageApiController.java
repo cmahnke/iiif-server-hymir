@@ -43,6 +43,9 @@ public class IIIFImageApiController {
   @Value("${custom.iiif.image.canonicalRedirect:true}")
   private boolean isCanonicalRedirectEnabled;
 
+  @Value("${custom.iiif.identifier.escape:true}")
+  private boolean escapeIdentifier;
+
   protected final CustomResponseHeaders customResponseHeaders;
 
   private final ImageService imageService;
@@ -91,7 +94,8 @@ public class IIIFImageApiController {
     return base;
   }
 
-  @RequestMapping(value = "**/{region}/{size}/{rotation}/{quality}.{format}")
+  //Stupid Path matcher won't match if '$' as end of request URL is appended
+  @RequestMapping(value = "**/{region}/{size}/{rotation:\\!?\\d+}/{quality}.{format}")
   public ResponseEntity<byte[]> getImageRepresentation(
       String identifier,
       @PathVariable String region,
@@ -201,9 +205,7 @@ public class IIIFImageApiController {
   public ResponseEntity<String> getInfo(
            String identifier, HttpServletRequest req, WebRequest webRequest)
       throws Exception {
-    String id =
-            new AntPathMatcher().extractPathWithinPattern((String) req.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE), req.getPathInfo());
-    id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
+    String id = URLPartIdentifierHelper.extractIdentifier(identifier, req);
 
     if (UrlRules.isInsecure(id)) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("");
@@ -218,10 +220,16 @@ public class IIIFImageApiController {
       path = req.getServletPath();
     }
     String baseUrl = getUrlBase(req);
-    String imageIdentifier =
-        baseUrl
-            + path.replace("/info.json", "")
-                .replace(id, URLEncoder.encode(id, StandardCharsets.UTF_8));
+    String imageIdentifier = baseUrl;
+    if (escapeIdentifier) {
+      imageIdentifier = imageIdentifier
+              + path.replace("/info.json", "")
+              .replace(id, URLEncoder.encode(id, StandardCharsets.UTF_8));
+    } else {
+      imageIdentifier = imageIdentifier
+              + path.replace("/info.json", "");
+    }
+
     var info = new de.digitalcollections.iiif.model.image.ImageService(imageIdentifier);
     imageService.readImageInfo(id, info);
     duration = System.currentTimeMillis() - duration;
@@ -255,7 +263,7 @@ public class IIIFImageApiController {
   }
 
     @RequestMapping(
-            value = "**",
+            value = "**(?!/info.json)",
             method = {RequestMethod.GET, RequestMethod.HEAD},
             name = "identifier")
   public String getInfoRedirect(String identifier, HttpServletRequest req, HttpServletResponse response) {
