@@ -619,6 +619,11 @@
           <name>GitHub Packages</name>
           <url>https://maven.pkg.github.com/cmahnke/hymir-quality-services</url>
         </repository>
+        <snapshotRepository>
+          <id>github</id>
+          <name>GitHub Packages</name>
+          <url>https://maven.pkg.github.com/cmahnke/hymir-quality-services</url>
+        </snapshotRepository>
       </distributionManagement>
     </profile>
     <profile>
