@@ -12,8 +12,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @Profile("plugins")
@@ -31,35 +34,43 @@ public class SpringConfigPlugins {
     private List<HymirPlugin> plugins;
 
     @Bean
-    public List<ImageQualityService> getImageQualityServices() {
-        List<ImageQualityService> imageQualityServices = FluentIterable.from(plugins)
-                .filter(ImageQualityService.class).filter(new Predicate<ImageQualityService>() {
-                    @Override
-                    public boolean apply(ImageQualityService input) {
-                        return (!(input instanceof HymirPlugin.Buildin));
-                    }
-                })
-                .toList();
-        for (ImageQualityService iqs : imageQualityServices) {
-            LOGGER.info("Supported quality '{}' found - {}", iqs.getQuality().toString(), (iqs.enabled() ? "enabled" : "disabled"));
-        }
-        return imageQualityServices;
-    }
-
-    @Bean
     public List<HymirPlugin> listPlugins() {
         List<HymirPlugin> ps = FluentIterable.from(plugins).filter(new Predicate<HymirPlugin>() {
                     @Override
                     public boolean apply(HymirPlugin input) {
-                        return (!(input instanceof HymirPlugin.Buildin || input instanceof ImageQualityService));
+                        return (!(input != null || input instanceof HymirPlugin.Buildin || input instanceof ImageQualityService));
                     }
                 })
                 .toList();
-
+        getImageServices();
         for (HymirPlugin p : ps) {
             LOGGER.info("Found plugin '{}'", p.name());
         }
         return ps;
+    }
+
+    @Bean
+    public List<ImageQualityService> getQualityServices() {
+        return FluentIterable.from(plugins)
+                .filter(ImageQualityService.class).filter(new Predicate<ImageQualityService>() {
+                    @Override
+                    public boolean apply(ImageQualityService input) {
+                        return (!(input != null || input instanceof HymirPlugin.Buildin));
+                    }
+                })
+                .toList();
+    }
+
+    //This won't work since Spring can't handle Maps without extra work and the is not method to configure the basic construction of Maps it does.
+    //Keep this to le it fill the log
+    public Map<String, ImageQualityService> getImageServices() {
+        Map<String, ImageQualityService> serviceMap = new HashMap<String, ImageQualityService>();
+        for (ImageQualityService iqs: getQualityServices()) {
+            String qualityName = iqs.getQuality().toString();
+            LOGGER.info("Supported quality '{}' found - {}, provided by '{}'", qualityName, (iqs.enabled() ? "enabled" : "disabled"), iqs.getClass().getName());
+            serviceMap.put(qualityName, iqs);
+        }
+        return serviceMap;
     }
 
 }

@@ -16,22 +16,16 @@ public interface ImageQualityService extends HymirPlugin {
      */
     public ImageApiProfile.Quality getQuality();
 
-    /**
-     * Provides the identifier of the image to be transformed.
-     * Can be used to make assumptions about the image.
-     * Otherwise, implementations may just provide a stub.
-     *
-     * @param identifier The Identifier of the image to be transformed
-     */
-    public void setIdentifier(String identifier);
+
 
     /**
      * This method need to be implemented to do the actual transformation
      *
+     * @param identifier The identifier of the image, might be null depending on implementation
      * @param img The image to be transformed
      * @return BufferedImage   The transformed image
      */
-    public BufferedImage processImage(BufferedImage img);
+    public BufferedImage processImage(String identifier, BufferedImage img);
 
     /**
      * Check if the plugin should be used.

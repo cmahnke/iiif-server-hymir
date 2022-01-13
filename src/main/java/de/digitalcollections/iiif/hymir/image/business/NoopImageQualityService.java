@@ -26,11 +26,7 @@ public class NoopImageQualityService implements ImageQualityService, HymirPlugin
     }
 
     @Override
-    public void setIdentifier(String identifier) {
-    }
-
-    @Override
-    public BufferedImage processImage(BufferedImage img) {
+    public BufferedImage processImage(String identifier, BufferedImage img) {
         return img;
     }
 

@@ -73,8 +73,8 @@ public class ImageServiceImpl implements ImageService {
 
   private final ImageSecurityService imageSecurityService;
 
-  private final List<ImageQualityService> imageQualityServices;
-  private Map<Quality, ImageQualityService> serviceMap = new HashMap<Quality, ImageQualityService>();
+  private List<ImageQualityService> imageQualityServices;
+  private Map<String, ImageQualityService> serviceMap = new HashMap<String, ImageQualityService>();
   private final FileResourceService fileResourceService;
 
   @Value("${custom.iiif.logo:}")
@@ -99,9 +99,10 @@ public class ImageServiceImpl implements ImageService {
     this.imageSecurityService = imageSecurityService;
     this.imageQualityServices = imageQualityServices;
     this.fileResourceService = fileResourceService;
-    if (this.imageQualityServices != null) {
-      for (ImageQualityService iqs: imageQualityServices) {
-        this.serviceMap.put(iqs.getQuality(), iqs);
+    for (ImageQualityService service : imageQualityServices) {
+      if (service != null && service.enabled()) {
+        serviceMap.put(service.getQuality().toString(), service);
+        LOGGER.debug("Quality {} is provided by {}", service.getQuality().toString(), service.getClass().getSimpleName());
       }
     }
   }
@@ -123,10 +124,11 @@ public class ImageServiceImpl implements ImageService {
     profile.addFormat(Format.GIF, Format.JPG, Format.PNG, Format.TIF, Format.WEBP);
 
     //Add supported Qualities
-    if (this.imageQualityServices != null) {
-      for (ImageQualityService iqs : this.imageQualityServices) {
-        if (iqs.enabled()) {
-          profile.addQuality(iqs.getQuality());
+    if (serviceMap != null) {
+      for (String qualityName : serviceMap.keySet()) {
+        if (serviceMap.get(qualityName).enabled()) {
+          LOGGER.debug("Adding quality " + qualityName + " to info.json");
+          profile.addQuality(new Quality(qualityName));
         }
       }
     }
@@ -381,16 +383,15 @@ public class ImageServiceImpl implements ImageService {
       img = Scalr.rotate(img, rot);
     }
 
-    if (this.serviceMap != null && this.serviceMap.containsKey(quality)) {
+    if (serviceMap != null && serviceMap.containsKey(quality.toString())) {
       //TODO: Find a way to handle size changes by the ImageQualityService
       ImageQualityService iqs = new NoopImageQualityService();
 
-      if (this.serviceMap.get(quality).enabled()) {
-        iqs = this.serviceMap.get(quality);
+      if (serviceMap.get(quality.toString()).enabled()) {
+        iqs = serviceMap.get(quality.toString());
       }
 
-      iqs.setIdentifier(identifier);
-      return iqs.processImage(img);
+      return iqs.processImage(identifier, img);
     } else {
       // Quality
       int outType;
@@ -422,15 +423,16 @@ public class ImageServiceImpl implements ImageService {
           ResourceNotFoundException, IOException, ScalingException {
     DecodedImage decodedImage = readImage(identifier, selector, profile);
 
-    boolean containsAlphaChannel = containsAlphaChannel(decodedImage.img);
-    if (!containsAlphaChannel) {
-      ImageApiProfile.Quality quality = selector.getQuality() ;
-      if (this.serviceMap != null && this.serviceMap.containsKey(quality)) {
-        if (this.serviceMap.get(quality).enabled()) {
-          containsAlphaChannel = this.serviceMap.get(quality).hasAlpha();
-        }
-      }
+    boolean containsAlphaChannel;
+    String quality = selector.getQuality().toString();
+
+    if (serviceMap != null && serviceMap.containsKey(quality) && serviceMap.get(quality).enabled()) {
+      LOGGER.debug("Processing image with plugin {}, checking for alpha value", serviceMap.get(quality).getClass().getSimpleName());
+      containsAlphaChannel = serviceMap.get(quality).hasAlpha();
+    } else {
+      containsAlphaChannel = containsAlphaChannel(decodedImage.img);
     }
+
     LOGGER.debug("image contains alpha channel: " + containsAlphaChannel);
     if (containsAlphaChannel) {
       int type = decodedImage.img.getType();
