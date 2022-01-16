@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import java.awt.image.BufferedImage;
 
 @Service
-public class NoopImageQualityService implements ImageQualityService, HymirPlugin.Buildin {
+public class NoopImageQualityService implements ImageQualityService.Tile, HymirPlugin.Buildin {
     @Value("${custom.image.quality.noop.enabled:false}")
     private boolean enabled = false;
 
@@ -26,12 +26,11 @@ public class NoopImageQualityService implements ImageQualityService, HymirPlugin
     }
 
     @Override
-    public BufferedImage processImage(String identifier, BufferedImage img) {
+    public BufferedImage processTile(String identifier, BufferedImage img) {
         return img;
     }
 
     @Override
-
     public boolean enabled() {
         return enabled;
     }

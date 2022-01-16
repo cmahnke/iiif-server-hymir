@@ -26,6 +26,7 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
@@ -74,7 +75,8 @@ public class ImageServiceImpl implements ImageService {
   private final ImageSecurityService imageSecurityService;
 
   private List<ImageQualityService> imageQualityServices;
-  private Map<String, ImageQualityService> serviceMap = new HashMap<String, ImageQualityService>();
+  private Map<String, ImageQualityService.Tile> tileQualityServiceMap = new HashMap<String, ImageQualityService.Tile>();
+  private Map<String, ImageQualityService.Source> sourceQualityServiceMap = new HashMap<String, ImageQualityService.Source>();
   private final FileResourceService fileResourceService;
 
   @Value("${custom.iiif.logo:}")
@@ -101,8 +103,13 @@ public class ImageServiceImpl implements ImageService {
     this.fileResourceService = fileResourceService;
     for (ImageQualityService service : imageQualityServices) {
       if (service != null && service.enabled()) {
-        serviceMap.put(service.getQuality().toString(), service);
-        LOGGER.debug("Quality {} is provided by {}", service.getQuality().toString(), service.getClass().getSimpleName());
+        if (service instanceof ImageQualityService.Tile) {
+          tileQualityServiceMap.put(service.getQuality().toString(), (ImageQualityService.Tile) service);
+        } else if (service instanceof ImageQualityService.Source) {
+          sourceQualityServiceMap.put(service.getQuality().toString(), (ImageQualityService.Source) service);
+        }
+        String serviceType = service.getClass().getInterfaces()[0] + "'s";
+        LOGGER.debug("Quality {} is provided by {}, type {}", service.getQuality().toString(), service.getClass().getSimpleName(), serviceType);
       }
     }
   }
@@ -124,12 +131,11 @@ public class ImageServiceImpl implements ImageService {
     profile.addFormat(Format.GIF, Format.JPG, Format.PNG, Format.TIF, Format.WEBP);
 
     //Add supported Qualities
-    if (serviceMap != null) {
-      for (String qualityName : serviceMap.keySet()) {
-        if (serviceMap.get(qualityName).enabled()) {
-          LOGGER.debug("Adding quality " + qualityName + " to info.json");
-          profile.addQuality(new Quality(qualityName));
-        }
+    for (ImageQualityService service : imageQualityServices) {
+      if (service != null && service.enabled()) {
+        String qualityName = service.getQuality().toString();
+        LOGGER.debug("Adding quality " + qualityName + " to info.json");
+        profile.addQuality(new Quality(qualityName));
       }
     }
 
@@ -185,7 +191,7 @@ public class ImageServiceImpl implements ImageService {
   }
 
   /** Try to obtain a {@link ImageReader} for a given identifier */
-  private ImageReader getReader(String identifier)
+  private ImageReader getReader(String identifier, String quality)
       throws ResourceNotFoundException, UnsupportedFormatException, IOException {
     if (imageSecurityService != null
         && !imageSecurityService.isAccessAllowed(identifier, currentRequest)) {
@@ -198,14 +204,19 @@ public class ImageServiceImpl implements ImageService {
       throw new ResourceNotFoundException();
     }
     try {
-      ImageInputStream iis =
-          ImageIO.createImageInputStream(fileResourceService.getInputStream(fileResource));
-      ImageReader reader =
-          Streams.stream(ImageIO.getImageReaders(iis))
-              .findFirst()
-              .orElseThrow(UnsupportedFormatException::new);
-      reader.setInput(iis);
-      return reader;
+      InputStream is = fileResourceService.getInputStream(fileResource);
+      if (quality == null || !sourceQualityServiceMap.containsKey(quality)) {
+        ImageInputStream iis = ImageIO.createImageInputStream(is);
+        ImageReader reader =
+                Streams.stream(ImageIO.getImageReaders(iis))
+                        .findFirst()
+                        .orElseThrow(UnsupportedFormatException::new);
+        reader.setInput(iis);
+        return reader;
+      } else {
+        ImageQualityService.Source service = sourceQualityServiceMap.get(quality);
+        return service.processStream(identifier, is);
+      }
     } catch (ResourceIOException e) {
       throw new ResourceNotFoundException();
     }
@@ -218,7 +229,7 @@ public class ImageServiceImpl implements ImageService {
           IOException {
     ImageReader r = null;
     try {
-      r = getReader(identifier);
+      r = getReader(identifier, null);
       enrichInfo(r, info);
       if (!this.logoUrl.isEmpty()) {
         info.addLogo(this.logoUrl);
@@ -280,7 +291,7 @@ public class ImageServiceImpl implements ImageService {
           InvalidParametersException, ScalingException {
     ImageReader reader = null;
     try {
-      reader = getReader(identifier);
+      reader = getReader(identifier, selector.getQuality().toString());
 
       if ((selector.getRotation().getRotation() % 90) != 0) {
         throw new UnsupportedOperationException("Can only rotate by multiples of 90 degrees.");
@@ -383,15 +394,15 @@ public class ImageServiceImpl implements ImageService {
       img = Scalr.rotate(img, rot);
     }
 
-    if (serviceMap != null && serviceMap.containsKey(quality.toString())) {
+    if (tileQualityServiceMap.containsKey(quality.toString())) {
       //TODO: Find a way to handle size changes by the ImageQualityService
-      ImageQualityService iqs = new NoopImageQualityService();
+      ImageQualityService.Tile iqs = new NoopImageQualityService();
 
-      if (serviceMap.get(quality.toString()).enabled()) {
-        iqs = serviceMap.get(quality.toString());
+      if (tileQualityServiceMap.get(quality.toString()).enabled()) {
+        iqs = tileQualityServiceMap.get(quality.toString());
       }
 
-      return iqs.processImage(identifier, img);
+      return iqs.processTile(identifier, img);
     } else {
       // Quality
       int outType;
@@ -426,9 +437,9 @@ public class ImageServiceImpl implements ImageService {
     boolean containsAlphaChannel;
     String quality = selector.getQuality().toString();
 
-    if (serviceMap != null && serviceMap.containsKey(quality) && serviceMap.get(quality).enabled()) {
-      LOGGER.debug("Processing image with plugin {}, checking for alpha value", serviceMap.get(quality).getClass().getSimpleName());
-      containsAlphaChannel = serviceMap.get(quality).hasAlpha();
+    if (tileQualityServiceMap.containsKey(quality) && tileQualityServiceMap.get(quality).enabled()) {
+      LOGGER.debug("Processing image with plugin {}, checking for alpha value", tileQualityServiceMap.get(quality).getClass().getSimpleName());
+      containsAlphaChannel = tileQualityServiceMap.get(quality).hasAlpha();
     } else {
       containsAlphaChannel = containsAlphaChannel(decodedImage.img);
     }
